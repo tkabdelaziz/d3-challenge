@@ -1,91 +1,100 @@
-(async function() {
-// Define SVG area dimensions
-const
-svgWidth = 700,
-svgHeight = 400;
+// set svg vars
+var svgWidth = 800;
+var svgHeight = 500;
 
-// Define the chart's margins as an object
-const chartMargin = {
-top: 20,
-right: 40,
-bottom: 70,
-left: 70
+var margin = {
+  top: 20,
+  right: 40,
+  bottom: 80,
+  left: 100
 };
 
-// Define dimensions of the chart area
-const chartWidth = svgWidth - chartMargin.left - chartMargin.right;
-const chartHeight = svgHeight - chartMargin.top - chartMargin.bottom;
+var width = svgWidth - margin.left - margin.right;
+var height = svgHeight - margin.top - margin.bottom;
 
-// Select scatter area, append SVG area to it, and set the dimensions
-const svg = d3.select("#scatter").append("svg")
-            .attr("height", svgHeight)
-            .attr("width", svgWidth);
+// set up svg
+var svg = d3.select("#scatter")
+  .append("svg")
+  .attr("width", svgWidth)
+  .attr("height", svgHeight);
 
-// Append a group to the SVG area and shift ('translate') it to the right and down to adhere
-// to the margins set in the "chartMargin" object.
-const chartGroup = svg.append("g")
-.attr("transform", `translate(${chartMargin.left}, ${chartMargin.top})`);
+// group charts
+var chartGroup = svg.append("g")
+  .attr("transform", `translate(${margin.left}, ${margin.top})`);
 
-// Load data data.csv
-const data = await d3.csv("assets/data/data.csv").catch(error => console.warn(error));
-// Print the data
-console.log(data);
-// Parse data and cast as numbers
-data.forEach(function(data) {
-    data.poverty  = +data.poverty;
-    data.obesity  = +data.obesity;
-  });
 
-  // Add X axis
-  var x = d3.scaleLinear()
-    .domain([0, 25])
-    .range([0, svgWidth]);
-  chartGroup.append("g")
-    .attr("transform", `translate(0, ${chartHeight})`)
-    .call(d3.axisBottom(x));
+d3.csv("/assets/data/data.csv").then(function(data) {
 
-  // yLabel
- chartGroup.append("text")
-    .attr("transform", "rotate(-90)")
-    .attr("x", -(chartHeight/2))
-    .attr("y", -50)
-    .text("Obesity (%)")
-    .classed("active", true);
+    // number conversion
+    data.forEach(function(xdata) {
+        xdata.poverty = +xdata.poverty;
+        xdata.obesity = +xdata.obesity;
 
-  // Add Y axis
-  var y = d3.scaleLinear()
-    .domain([0, 30])
-    .range([chartHeight, 0]);
-  chartGroup.append("g")
-    .call(d3.axisLeft(y));
+    });
 
-    // xLabel
-  chartGroup.append("g")
-    .attr("transform", `translate(${chartWidth / 2}, ${chartHeight})`)
-    .append("text")
-        .attr("x", 0)
-        .attr("y", 50)
-        .text("Poverty (%)")
-        .classed("active", true);
+    // x function
+    var xLinearScale = d3.scaleLinear()
+        .domain([d3.min(data, d=>d.poverty)*0.9,
+            d3.max(data, d => d.poverty)*1.1])
+        .range([0, width]);
 
-  // Add dots
-  chartGroup.selectAll("g circle")
-    .data(data)
-    .enter()
-    .append("g")
-    .append("circle")
-      .attr("cx", (d => x(d.obesity)-500))
-      .attr("cy", (d => y(d.poverty)))
-      .attr("r", 15)
-      .style("fill", "#69b3a2")
+    // y function
+    var yLinearScale = d3.scaleLinear()
+        .domain([0, d3.max(data, d => d.obesity)*1.1])
+        .range([height, 0]);
 
-  // Add text to dots
-  chartGroup.selectAll("g circle")
-    .data(data)
-    .enter()
-    .append("g")
-    .append("text")
+    // set bottom/left axes
+    var bottomAxis = d3.axisBottom(xLinearScale);
+    var leftAxis = d3.axisLeft(yLinearScale);
+
+    // x axis
+    chartGroup.append("g")
+        .attr("transform", `translate(0, ${height})`)
+        .call(bottomAxis);
+
+    // y axis
+    chartGroup.append("g")
+        .call(leftAxis);
+
+    // function for circles
+    chartGroup.selectAll("circle")
+        .data(data)
+        .enter()
+        .append("circle")
+        .attr("cx", d => xLinearScale(d.poverty))
+        .attr("cy", d => yLinearScale(d.obesity))
+        .attr("r", 12)
+        .attr("fill", "maroon")
+        .attr("opacity", 0.5);
+
+    // add State abbrev to circles
+    chartGroup.selectAll("text.text-circles")
+        .data(data)
+        .enter()
+        .append("text")
         .text(d => d.abbr)
-        .attr("fill","black")
+        .attr("x", d => xLinearScale(d.poverty))
+        .attr("y", d => yLinearScale(d.obesity))
+        .attr("dy",5)
+        .attr("text-anchor","middle")
+        .attr("fill", "black");
 
-})()
+    // y axis
+    chartGroup.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 30 - margin.left)
+        .attr("x", 0 - (height / 2))
+        .attr("dy", "1em")
+        .text("Obesity (%)")
+        .classed("active",true);
+
+    // x axis
+    chartGroup.append("text")
+        .attr("y", height + margin.bottom/2 - 10)
+        .attr("x", width / 2)
+        .attr("dy", "1em")
+        .text("Poverty Rate (%)")
+        .classed("active",true);
+
+
+});
